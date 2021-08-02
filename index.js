@@ -28,10 +28,10 @@ app.get('/', (req,res) => {
 app.get('/makecampground', async (req,res) => {
    const camp = new Campground({title: 'My Backyard', description: 'cheap camping'});
    await camp.save();
-   res.send(camp)
+   res.send(camp);
 });
 
 
 app.listen(5050, () =>{
-    console.log("Listening on Port 3000")
+    console.log("Listening on Port 3000");
 });
