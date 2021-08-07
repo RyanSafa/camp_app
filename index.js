@@ -3,9 +3,11 @@ const mongoose = require('mongoose');
 const methodOverride = require('method-override')
 const path = require('path');
 const ejsMate = require('ejs-mate')
+const  { campgroundSchema } = require('./schemas.js')
 const ExpressError = require('./utils/ExpressError')
 const catchAsync = require('./utils/catchAsync')
 const Campground = require('./models/campground');
+const { join } = require('path');
 
 mongoose.connect('mongodb://localhost:27017/yelp-camp', {
     useNewUrlParser: true,
@@ -28,6 +30,17 @@ app.set('views', path.join(__dirname, 'views'));
 //middleware
 app.use(express.urlencoded({extended: true}));
 app.use(methodOverride('_method'));
+
+const validateCampground = (req,res,next) =>{
+    const {error} = campgroundSchema.validate(req.body);
+    if(error){
+        const msg = error.details.map((el) =>el.message).join(',');
+        throw new ExpressError(msg, 400);
+    } else {
+        next();
+    }
+}
+
 app.engine('ejs', ejsMate);
 
 app.get('/', (req,res) => {
@@ -43,7 +56,7 @@ app.get('/campgrounds/new', (req, res) =>{
     res.render('campgrounds/new');
 });
 
-app.post('/campgrounds', catchAsync(async(req,res) => {
+app.post('/campgrounds', validateCampground, catchAsync(async(req,res) => {
     const newCampground = new Campground(req.body.campground);
     await newCampground.save();
     res.redirect(`campgrounds/${newCampground._id}`)
@@ -61,7 +74,7 @@ app.get('/campgrounds/:id/edit', catchAsync(async(req,res) => {
     res.render('campgrounds/edit', { campground });
 }));
 
-app.put('/campgrounds/:id', catchAsync(async(req,res) => {
+app.put('/campgrounds/:id', validateCampground, catchAsync(async(req,res) => {
     const { id } = req.params;
     const campground = await Campground.findByIdAndUpdate(id, { ...req.body.campground});
     res.redirect(`/campgrounds/${campground._id}`)
@@ -74,13 +87,14 @@ app.delete('/campgrounds/:id', catchAsync(async(req,res ) => {
 }));
 
 app.all('*', (req,res,next) => {
-     ext(new ExpressError('Page Not Found', 404));
+    next(new ExpressError('Page Not Found', 404));
 });
 
 //basic error handling middleware
-app.use((err,req,res,next) =>{ 
-    const {statusCode = 500, message = 'Something went wrong'} = err;
-    return res.status(statusCode).send(message);
+app.use((err,req,res,next) =>{
+    const { statusCode = 500} = err;
+    if(!err.message) err.message = "Oh no, something went wrong!"
+    res.status(statusCode).render('error', {err});
 });
 
 app.listen(3000, () =>{
