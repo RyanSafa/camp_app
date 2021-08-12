@@ -10,7 +10,7 @@ const Campground = require('./models/campground');
 const campgrounds = require('./routes/campgrounds');
 const reviews = require('./routes/reviews');
 const session = require('express-session');
-
+const flash = require('connect-flash')
 mongoose.connect('mongodb://localhost:27017/yelp-camp', {
     useNewUrlParser: true,
     useCreateIndex: true,
@@ -44,12 +44,23 @@ app.use(session(sessionConfig));
 app.use(methodOverride('_method'));
 app.use(express.static(path.join(__dirname, 'public')));
 app.engine('ejs', ejsMate);
+app.use(flash())
+
+app.use((req,res,next) =>{
+    res.locals.success = req.flash('success'); //.locals means that all our templates have access to success
+    res.locals.error = req.flash('error')
+    next()
+})
+
 app.use('/campgrounds', campgrounds);
 app.use('/campgrounds/:id/reviews', reviews);
 
-
 app.get('/', (req,res) => {
     res.render('home');
+});
+
+app.all('*', (req,res,next) => {
+    next(new ExpressError('Page Not Found', 404));
 });
 
 app.use((err,req,res,next) =>{
